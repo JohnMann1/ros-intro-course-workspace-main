@@ -1,0 +1,13 @@
+zip:
+    image: alpine
+
+    before_script:
+        - apk add --update zip
+
+    script:
+        - zip -r ROSCourseWorkspace.zip .
+
+    artifacts:
+        paths:  
+            - ROSCourseWorkspace.zip
+        when: on_success

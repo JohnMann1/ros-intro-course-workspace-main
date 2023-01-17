@@ -1,0 +1,8 @@
+<launch>
+  <arg name="mode" default="test" />
+
+  <param name="somestring1" value="bar" />
+
+  <node name="talker" pkg="ros_course_examples" type="talker.py" />
+  <node name="listener" pkg="ros_course_examples" type="listener.py" />
+</launch>
