@@ -34,7 +34,7 @@ class ROSInteraction:
         self.publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
 
     def init_subscriber(self):
-        rospy.Subscriber('/odom', Odometry, subscription_callback(self, Odometry))
+        rospy.Subscriber('/odom', Odometry, self.direction_key_callback(Odometry))
 
     def init_action_client(self):
         self.client = actionlib.SimpleActionClient("/move_base", MoveBaseAction)
