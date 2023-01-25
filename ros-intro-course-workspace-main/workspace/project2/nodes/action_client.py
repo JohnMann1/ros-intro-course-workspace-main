@@ -1,6 +1,7 @@
+#! /usr/bin/env python
 # John Mann Project 2 Task 1 
 # simple action client with a lot of stuff copied from the tutorial
-#! /usr/bin/env python
+
 
 import rospy
 

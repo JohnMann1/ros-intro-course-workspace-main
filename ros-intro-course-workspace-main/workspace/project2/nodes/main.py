@@ -2,8 +2,8 @@
 # John Mann Project 2 Task 1
 
 from action_client import ActionClient
+from map_listener import MapListener
 
 if __name__ == "__main__":
-    print("1")
-    print("2")
-    simple_action_client = ActionClient()
+    #simple_action_client = ActionClient()
+    listener = MapListener()
