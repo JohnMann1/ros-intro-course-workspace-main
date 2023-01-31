@@ -8,9 +8,6 @@ import rospy
 import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
-def what():
-    print("test")
-
 class ActionClient:
     gui = None
     #publisher = None
@@ -26,10 +23,10 @@ class ActionClient:
         #     coordinate_callback=self.coordinate_callback,
         # )
         # self.gui.run()
-    
+
     def init_node(self):
         rospy.init_node("Action_Client")
-    
+
     def init_action_client(self):
         self.client = actionlib.SimpleActionClient("/move_base", MoveBaseAction)
         self.client.wait_for_server()

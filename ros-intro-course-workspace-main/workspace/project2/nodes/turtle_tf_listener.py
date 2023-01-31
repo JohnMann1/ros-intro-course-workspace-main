@@ -7,19 +7,31 @@ import geometry_msgs.msg
 import turtlesim.srv
 
 # John Mann Project 2 Task 1
-if __name__ == '__main__':
-    rospy.init_node('turtle_tf_listener')
+class TurtleTransformListener():
+	node = None
+	listener = None
 
-    listener = tf.TransformListener()
+	def __init__(self):
+		self.node = self.init_node()
+		self.listener = self.init_listener()
 
-    rate = rospy.Rate(10.0)
+		run()
 
-    while not rospy.is_shutdown():
-        # look up /map to /base_footprint frame
-        try:
-            (trans,rot) = listener.lookupTransform('/base_footprint', '/map', rospy.Time(0))
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            continue
-        
-        rospy.loginfo("Location: " + str(trans))
-        rate.sleep()
+	def init_node(self):
+		self.node = rospy.init_node('turtle_tf_listener')
+
+	def init_listener(self):
+		self.listener = tf.TransformListener()
+
+	def run():
+		rate = rospy.Rate(10.0)
+
+		while not rospy.is_shutdown():
+			# look up /map to /base_footprint frame
+			try:
+				(trrans, rot) = listener.lookupTransform('/base_footprint', '/map', rospy.Time(0))
+			except (tf.lookupException, tf.ConnectivityException, tf.ExtrapolationException):
+				continue
+
+			rate.sleep()
+

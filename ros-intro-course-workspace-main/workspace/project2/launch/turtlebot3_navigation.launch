@@ -12,10 +12,10 @@
   </include>
 
   <!-- transform listener -->
-  <node pkg="project2_task1" type="turtle_tf_listener.py" name="listener" output="screen" />
+  <node pkg="project2" type="turtle_tf_listener.py" name="listener" output="screen" />
 
   <!-- main.py  -->
-  <node  pkg="project2_task1" type="main.py" name="action_client"/>
+  <node  pkg="project2" type="main.py" name="action_client"/>
   
   <!-- rviz -->
   <group if="$(arg open_rviz)"> 
