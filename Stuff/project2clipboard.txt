@@ -1,0 +1,35 @@
+Project 2 Launch stuff
+	roslaunch turtlebot3_gazebo turtlebot3_stage_4.launch
+	roslaunch turtlebot3_slam turtlebot3_slam.launch slam_methods:=gmapping
+	roslaunch project2 turtlebot3_navigation.launch
+
+	commands
+		rostopic pub -1 /move_base/goal move_base_msgs/MoveBaseActionGoal "header:
+  seq: 0
+  stamp:
+    secs: 0
+    nsecs: 0
+  frame_id: ''
+goal_id:
+  stamp:
+    secs: 0
+    nsecs: 0
+  id: ''
+goal:
+  target_pose:
+    header:
+      seq: 0
+      stamp:
+        secs: 0
+        nsecs: 0
+      frame_id: 'base_footprint'
+    pose:
+      position:
+        x: 1.0
+        y: 0.0
+        z: 0.0
+      orientation:
+        x: 0.15
+        y: 0.0
+        z: 0.0
+        w: .49"

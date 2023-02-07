@@ -11,12 +11,14 @@
     <arg name="move_forward_only" value="$(arg move_forward_only)"/>
   </include>
 
-  <!-- transform listener -->
-  <node pkg="project2" type="turtle_tf_listener.py" name="listener" output="screen" />
-
-  <!-- main.py  -->
-  <node  pkg="project2" type="main.py" name="action_client"/>
   
+  <!-- transform listener -->
+  <!--  <node pkg="project2" type="turtle_tf_listener.py" name="listener" output="screen" /> -->
+	
+  <!-- main.py  -->
+  <!--
+  <node  pkg="project2" type="main.py" name="action_client"/>
+  -->
   <!-- rviz -->
   <group if="$(arg open_rviz)"> 
     <node pkg="rviz" type="rviz" name="rviz" required="true"

@@ -1,18 +1,10 @@
-John Mann Project 2 Task 2 ReadMe
+John Mann Project 2 Task 3 ReadMe
 
-Everything seems to work fine. My machine is a little slow updating the map but the video shows that it does that slowly as the robot is moving. These updates come whenevever new map data is sent.
+map_listener.py seems to work well up to a point. It will search for the first 2 centroids correctly and go to them, but once it runs into trouble, the navigation corrects and I can't seem to get it to listen to my goals again.
 
-All of the code I have written for this assignment is in the nodes/main.py and nodes/map_listener.py
+All the code is main.py and map_listener.py. to run it I use the same commands from task1 and then
+	>$ rosrun project2 main.py
 
-main.py just calls map_listener.py. Map_listener.py calculates frontiers and publishes the points and centroids
+I still get the same warning about my numpy version being incorrect, but it hasn't caused any issues, and Weston said it was fine
 
-to run the simulation I used the commands from task 1 to start
-	roslaunch turtlebot3_gazebo turtlebot3_stage_4.launch
-	roslaunch turtlebot3_slam turtlebot3_slam.launch slam_methods:=gmapping
-	roslaunch project2 turtlebot3_navigation.launch
 
-before running main.py I had to install sklearn, but this was only one time whenever I opened a new docker image. You might not have this issue if it's installed already.
-	pip3 install -U scikit-learn
-
-then I run main.py which calls map_listener.py to calculate frontiers
-	rosrun project main.py
