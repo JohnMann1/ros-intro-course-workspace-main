@@ -79,7 +79,7 @@ class QTable():
 
 	# reads table in from file
 	def init_table(self):
-		f = open("./src/project3/src/q_table.txt", "r")
+		f = open("./src/q_table.txt", "r")
 		self.table = string_to_table(f.read())
 
 	# q_table_lookup

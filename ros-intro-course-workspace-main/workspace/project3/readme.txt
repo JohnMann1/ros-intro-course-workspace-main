@@ -3,6 +3,8 @@ John Mann Project 3 Task 1
 Follows a straigh wall well. Needs to come in at slightly right of perpendicular of the wall.
 
 To run
+First make sure you are in the direction "..."/project3. wall_follow.py needs to read in the q_table and the path is relative to /project3
+
 my docker is having an issue where I have to remake the file for turtlebot3_plaza2 every time I start it up, so I follow the solution that Sherif gave. I don't think this will be an issue for anyone grading, but I'll include them in case.
 	mkdir ~/.gazebo/models
 	cp ~/catkin_ws/src/project3/models/turtlebot3_plaza2 ~/.gazebo/models/turtlebot3_plaza2
