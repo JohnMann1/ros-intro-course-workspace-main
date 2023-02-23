@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# John Mann Project 3 Task 1
+# John Mann Project 3 Task 2
 # this robot follows the right wall at about .4m
 
 # if roads were straight and had an infinitely long wall on the right,
@@ -9,6 +9,9 @@
 import rospy
 import nav_msgs.msg
 import tf
+import math
+from matplotlib import pyplot
+from random import random
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from std_srvs.srv import Empty
 from geometry_msgs.msg import Twist, Pose, Vector3, Point
@@ -30,32 +33,63 @@ from gazebo_msgs.msg import ModelState #, SetModelState
 ####
 
 linear_velocity = 0.1
-angular_velocity = 0.2
-num_actions = 3 # 0 turn left, 1 go straight, 2 turn right
-starts = [[0,0,0,0,0,0], [1,1.5,0,0,.92,.37], [-2, -1.5,0,0,0,0], [1.8,0,0,0,.37,.92]]
+angular_velocity = 0.5
+
+starts = [[] for i in range(12)]
+starts[0] = [0,0,0,0,0,0] # origin
+starts[1] = [1,1.5,0,0,.92,.37] # going down left wall
+starts[2] = [-2, -2,0,0,0,0] # up from bottom right corner
+starts[3] = [1.4,0,0,0,0,1] # going north near top
+starts[4] = [2,.2,0,0,.67,.74] # top going left
+starts[5] = [0, 2,0,0,.99,-.01] # top middle going down
+starts[6] = [.2,-1.3,0,0,-.62,.77] # top right going into corner
+starts[7] = [1.07,-1.31,0,0, .66, .74] # top right going towards i wall
+starts[8] = [-1.8,-.5,0,0, -.84, .52] # bottom middle going east
+starts[9] = [-1.93,1.72,0,0, -.71, .69] # bottom left going east
+starts[10] = [0,1.81,0,0, 1, 0] # middle left going south
+starts[11] = [0,1.5,0,0, 1, 0] # middle slightly less left going south
 
 
 # 0 is the closest, and different directions will have different granularity from there
-# left: 0, 1 --> close, far TODO
-# front: 0, 1 --> close, far TODO
+# left: 0, 1 --> close, far
+# front: 0, 1 --> close, far
 # front_right: 0, 1, 2 --> close, medium, far
-# right 0, 1, 2 --> close, medium, far
-left_regions = 2
-front_regions = 2
-front_right_regions = 3
-right_regions = 3
+# right 0, 1, 2, 3, 4 --> close, medium close, medium, medium far, far
+left_regions = 3
+front_regions = 3
+front_right_regions = 2
+right_regions = 5
 
 num_states = left_regions * front_regions * front_right_regions * right_regions
 
-# object to hold states for q table
-# this will hold 4 integers: left, front, front_right, right
-# these integers correspond to the regions of distance in that direction
-class State():
-	def __init__(self, left, front, front_right, right):
-		self.left = left
-		self.front = front
-		self.front_right = front_right
-		self.right = right = right
+# option of 5 actions
+actions5 = [Twist() for i in range(5)]
+actions5[3] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = angular_velocity)) # go left
+actions5[4] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = .5 *angular_velocity)) # go left
+actions5[0] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = 0)) # go straight
+actions5[1] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = -.5 * angular_velocity)) # go right
+actions5[2] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = -1 * angular_velocity)) # go right
+
+# option of 3 actins
+actions3 = [Twist() for i in range(3)]
+actions3[0] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = angular_velocity)) # go left
+actions3[1] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = 0)) # go straight
+actions3[2] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = -1* angular_velocity)) # go right
+
+actions = actions5
+num_actions = len(actions)
+
+# correct actions
+# [l, f, fr, r, a]
+test_cases = [[0 for i in range(5)] for i in range(7)]
+test_cases[0] = [1,2,1,3,2]
+test_cases[1] = [1,0,0,1,0]
+test_cases[2] = [1,2,0,2,2]
+test_cases[3] = [1,2,1,2,4]
+test_cases[4] = [1,2,1,1,4]
+test_cases[5] = [1,1,0,1,0]
+test_cases[6] = [1,2,0,4,2]
+
 
 # object to hold actions for q table
 class Action():
@@ -65,59 +99,74 @@ class Action():
 
 # q_table ## extremely helpful comment
 class QTable():
-	table = None
-	actions = [Twist() for i in range(num_actions)]
+	# table structure: table[l][f][fr][r][action]
+	table = [[[[[0 for i in range(num_actions)] for i in range(right_regions)] for i in range(front_right_regions)] for i in range(front_regions)] for i in range(left_regions)]
 
-	def __init__(self):
-		self.init_actions()
-		self.init_table()
-
-	def init_actions(self):
-		self.actions[0] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = angular_velocity)) # go left
-		self.actions[1] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = 0)) # go straight
-		self.actions[2] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = -1 * angular_velocity)) # go right
+	def __init__(self, file):
+		self.init_table(file)
 
 	# reads table in from file
-	def init_table(self):
-		f = open("./src/q_table.txt", "r")
-		self.table = string_to_table(f.read())
+	def init_table(self, file):
+		if file != "q_table_blank.txt":
+			path = "/root/catkin_ws/src/project3/src/q_tables/" + file
+			f = open(path, "r")
+			self.table = string_to_table(f.read())
+		else:
+			pass
 
 	# q_table_lookup
 	# input a state with region values
 	# finds which vlaue in the table matches that state
-	# returns the best option for action
-	def table_lookup(self, state):
-		n = find_in_state_table(state)
-
-		# walk list to find the index with highest value
-		max = -1
-		max_index = 0
-		for i in range(num_actions):
-			if max < self.table[n][i]:
-				max = self.table[n][i]
-				max_index = i
-
-		return self.actions[max_index]
+	# returns the best option for action, and a boolean for if it was not random choice
+	def table_lookup(self, state, e = 0):
+		(l, f, fr, r) = state
+		action_list = self.table[l][f][fr][r]
+		a = None
+		randy = random()
+		# greed policy
+		# if r is greater, pick the highest q table action
+		# if r is smaller, pick a random one
+		# epsilon gets smaller so starts picking the table more
+		if randy > e:
+			# find index of maximum value
+			max_index = action_list.index(max(action_list))
+#			print(state, ": ",calc_state(state), " --> ", action_list, ": ", max_index)
+			return (max_index, True)
+		else:
+			return (math.floor(random()*len(actions)), False)
 
 	# update_q_table
-	# TODO
-	def update_table(self, reward):
-		pass
+	# q_learning implementation
+	def update_table(self, before, a, after, reward):
+		(l1,f1,fr1,r1) = before
+		(l2,f2,fr2,r2) = after
 
+		learning = .2
+		discount = .8
+
+		old = self.table[l1][f1][fr1][r1][a]
+		next_action = max(self.table[l2][f2][fr2][r2])
+		new_q = old + learning * (reward + discount * next_action - old)
+
+		self.table[l1][f1][fr1][r1][a] = round(new_q,2)
 	# write
 	# saves the q_table in a file
-	def write(self):
-		file = open("./src/project3/src/q_table.txt", "w")
+	def write(self, file):
+		path = "/root/catkin_ws/src/project3/src/q_tables/" + file
+		file = open(path, "w")
 		file.write(table_to_string(self.table))
 		file.close()
 
-		# print nice
-#		for i in range(num_states):
-#			file.write(f"   {i}    {self.table[i][0]}    {self.table[i][1]}    {self.table[i][2]} \n")
 
 ####
 #### couple of little helper functions to make code nicer
 ####
+
+def temp(list, i):
+	for j in range(len(list)):
+		list[j] = 0
+
+	list[i] = 1
 
 def reset():
 	return rospy.ServiceProxy('/gazebo/reset_simulation', Empty)
@@ -148,23 +197,32 @@ def make_model_state(px = 0, py = 0, ox = 0, oy = 0, oz = 0, ow = 1):
 def set_spawn(i):
 	return make_model_state(starts[i][0],starts[i][1],starts[i][2],starts[i][3],starts[i][4],starts[i][5])
 
+def calc_state(state):
+	(l,f,fr,r) = state
+	return l*left_regions+f*front_regions+fr*front_right_regions+r*right_regions
 
-# turns 2D array into string to write to file
-# just makes it one big line, might change that later
+# writes the table as a CSV kinda
+# never done a 5 deep loop before, hopefully never will again
 def table_to_string(table):
 	string = ""
 
-	for i in range(num_states):
-		for j in range(num_actions):
-			string = string + str(table[i][j]) + " "
-		string = string + '\n'
+	for i in range(left_regions):
+		for j in range(front_regions):
+			for k in range(front_right_regions):
+				for l in range(right_regions):
+					for m in range(num_actions):
+						string = string + str(table[i][j][k][l][m]) + " "
+					string = string +'\n'
 
 	return string
 
 # turns string from file into q_table
 # this one's kinda gross because numbers can be 1-3 digits
 def string_to_table(string):
-	table = [[0 for i in range(num_actions)] for i in range(num_states)]
+	table = [[[[[0 for i in range(num_actions)] for i in range(right_regions)] for i in range(front_right_regions)] for i in range(front_regions)] for i in range(left_regions)]
+
+	# clean list
+	list = [0 for i in range(num_states*num_actions)]
 	count = 0
 	buffer = 0
 	buffer_size = 0
@@ -173,7 +231,7 @@ def string_to_table(string):
 		if string[i] == " ":
 			# hit a space
 			# add number to table
-			table[count // num_actions][count % num_actions] = buffer # this some pretty cool math
+			list[count] = int(buffer)
 			# reset for next number
 			count += 1
 			buffer = 0
@@ -183,80 +241,145 @@ def string_to_table(string):
 		else:
 			# started or continued a number
 			buffer_size += 1
-			buffer = int(string[i-buffer_size+1:i+1])
+			buffer = string[i-buffer_size+1:i+1]
+
+	count = 0
+	for i in range(left_regions):
+		for j in range(front_regions):
+			for k in range(front_right_regions):
+				for l in range(right_regions):
+					for m in range(num_actions):
+						table[i][j][k][l][m] = list[count]
+						count += 1
+
 
 	return table
 
 # check_left
-# determines closeness of 50 degrees to 90 degrees
+# determines closeness of 30 degrees to 90 degrees
 def check_left(scan):
-	left = min(scan[49:89])
-	if left < .5:
+	left = min(scan[29:89])
+#	print("left: ", left)
+	if left < .4:
 		return 0 # close
+	elif left >= .4 and left < .9:
+		return 1 # medium
 	else:
-		return 1 # far
+		return 2 # far
 
 # check_front
-# determines closeness of 345 degrees to 15 degrees
+# determines closeness of 330 degrees to 30 degrees
 def check_front(scan):
-	front = min(scan[0:14] + scan[344:359])
-	if front < .75:
+	front = min(scan[0:29] + scan[329:359])
+#	print("front:", front)
+	if front < .6:
+		return 0 # close
+	elif front >= .6 and front < 1:
+		return 1 # medium
+	else:
+		return 2 # far
+
+# check_front_right
+# determines closeness of 300 degrees to 330 degrees
+def check_front_right(scan):
+	front_right = min(scan[299:339])
+#	print("front right:", front_right)
+	if front_right < .6:
 		return 0 # close
 	else:
 		return 1 # far
 
-# check_front_right
-# determines closeness of 300 degrees to 340 degrees
-def check_front_right(scan):
-	front_right = min(scan[299:339])
-	if front_right < .5:
-		return 0 # close
-	elif front_right >= .5 and front_right < .75:
-		return 1 # medium
-	else:
-		return 2 # far
-
 # check_right
-# determines closeness of 260 degrees to 300 degrees
+# determines closeness of 250 degrees to 330 degrees
 def check_right(scan):
-	right = min(scan[259:299])
-	if right < .4:
+	right = min(scan[249:329])
+#	print("right:", right)
+
+#	if right < .2:
+#		return 0 # close
+#	elif right >= .2 and right < .4:
+#		return 1 # medium close
+#	else:
+#		return 2
+	if right < .2:
 		return 0 # close
-	elif right >= .4 and right < .6:
-		return 1 # medium
+	elif right >= .2 and right < .3:
+		return 1 # medium close
+	elif right >= .3 and right < .4:
+		return 2 # medium
+	elif right >= .5 and right < .6:
+		return 3 # medium far
 	else:
-		return 2 # far
+		return 4 # far
 
-# find_in_state_table
-# input a state
-# returns the table value
-# basically just hard coding a bunch of states
-# TODO use some kind of prime number system to make this better idk
-def find_in_state_table(state):
-	# creates a composite integer for values
-	input = (state.left*(10**3)) + (state.front_right*(10**2)) + (state.front*(10)) + (state.right)
+# check_move
+def check_move(pose1, pose2):
+	x = pose1[0]
+	y = pose2[0]
 
-	# TODO this will need to grow to include left and front
+	if abs(x[0] - y[0]) < .01 and abs(x[1] - y[1]) < .01:
+		return False
+	return True
 
-	input = input % 100
-	if input == 0: # right close, frontright close
-		return 0
-	if input == 1: # right medium, frontright close
-		return 1
-	if input == 2: # right far, frontright close
-		return 2
-	if input == 10: # right close, frontright medium
-		return 3
-	if input == 11: # right medium, frontright medium
-		return 4
-	if input == 12: # right far, frontright medium
-		return 5
-	if input == 20: # right close, frontright far
-		return 6
-	if input == 21: # right medium, frontright far
-		return 7
-	if input == 22: # right far, frontright far
-		return 8
+def print_table(table):
+	for i in range(left_regions):
+		for j in range(front_regions):
+			for k in range(front_right_regions):
+				for l in range(right_regions):
+					print((i,j,k,l), ": ", table[i][j][k][l])
+
+
+
+# check_learning
+# input state and action
+# checks it against a few certain cases
+# returns -1 if the state wasn't determinable, 0 if failed, 1 if correct
+def check_learning(state, a):
+	(l,f,fr,r) = state
+
+	if f > 0 and fr == 0 and r != 0 and r != right_regions-1: # in a corner
+		if a == 0: # go straight
+			return 1
+		else:
+			return 0
+
+	if f == 0 and l > 0: # front close and not close on left
+		if a == 3 or a == 4: # turn left
+			return 1
+		else:
+			return 0
+	if f > 0 and fr > 0 and r < right_regions-1: # coming up to i wall
+		if a == 1 or a == 2: # turn right
+			return 1
+		else:
+			return 0
+
+	return 0
+
+# write_learning
+# writes the learning array to a file just for safe keeping
+def write_learning(graph):
+	path = "/root/catkin_ws/src/project3/src/learning_graph.txt"
+	f = open(path, "w")
+	f.write(str(graph))
+	f.close()
+
+# graph_learning
+# graphs the learning_graph in real time
+# should only get called every 10 or so episodes
+def graph_learning(learning_graph):
+	values = [0 for i in range(len(learning_graph))]
+
+
+	for i in range(len(values)):
+		if learning_graph[i][1] == 0:
+			values[i] = 0
+		else:
+			values[i] = learning_graph[i][0]/learning_graph[i][1]
+
+	pyplot.plot(values)
+	pyplot.show(False)
+	pyplot.pause(.001)
 
 ####
 #### The Meat of It
@@ -275,32 +398,29 @@ class WallFollower():
 	scan = None
 	q_table = None
 	restarts = None
+	learning_graph = None
 
-	def __init__(self):
+	def __init__(self, mode = "test", table=None, folder=""):
 		self.init_node()
 		self.init_laser_subscriber()
 		self.init_tf_listener()
-		self.init_q_table()
 		self.init_move_publisher()
 		self.init_model_publisher()
 		self.restarts = 0
+		self.learning_graph = []
 
 		while self.scan == None and not rospy.is_shutdown():
 			rospy.sleep(1)
 
-		###
-		### Set the robot's starting position
-		### there are 4 options in the global starts array
-		###
-		spawn = set_spawn(1)
-		self.model_publisher.publish(spawn) # comment this line to stop spawning
-
-		print("imma follow that wall now")
-		# handles episodes for robot learning
-		self.follow_wall()
-
-		# save the q_table in case I'm an idiot and lose it somehow
-		self.q_table.write()
+		if mode == "test":
+			# TODO let user specify the table to use
+			self.test_mode(table)
+		elif mode == "teleop":
+			self.teleop_mode()
+		elif mode == "learn":
+			self.learn_mode(table, folder)
+		else:
+			pass
 
 	def init_node(self):
 		rospy.init_node('wall_follower')
@@ -314,8 +434,8 @@ class WallFollower():
 		self.tf_lookup() # initialize robot's position
 		print("initialized tf_listener", end=", ")
 
-	def init_q_table(self):
-		self.q_table = QTable()
+	def init_q_table(self, file):
+		self.q_table = QTable(file)
 		print("initialized Q-table", end=", ")
 
 	def init_move_publisher(self):
@@ -326,8 +446,72 @@ class WallFollower():
 		self.model_publisher = rospy.Publisher("/gazebo/set_model_state", ModelState, queue_size = 1)
 		print("publishing on /gazebo/set_model_state", end=", ")
 
-	def init_model_states_subscriber():
-		self.model_states_subscriber = rospy.Subscriber("/gazebo/model_states", )
+
+	# teleop_mode
+	# just prints the state its in
+	def teleop_mode(self):
+		print("Starting Teleop Mode")
+
+		while not rospy.is_shutdown():
+			print(self.get_state())
+			rospy.sleep(10)
+
+	# test_mode
+	# runs episodes using the manual table
+	# doesn't learn or change e
+	def test_mode(self, table = "q_table_manual.txt"):
+		print("Starting Test Mode")
+		file = table
+		# start from manual q_table
+		self.init_q_table(file)
+
+		# handles episodes for robot learning
+		episode = 0
+
+		while not rospy.is_shutdown():
+			### Set the robot's starting position
+			### there are 12 options in the global starts array
+			spawn = set_spawn(episode % 12)
+			self.model_publisher.publish(spawn) # comment this line to stop spawning
+			self.start_episode(0, episode)
+			episode += 1
+
+	def learn_mode(self, file, folder):
+		print("Starting Learning Mode")
+
+		if file == None:
+			file = "q_table_blank.txt"
+		if folder != "":
+			folder = folder+"/"
+
+		# load q-table
+		table = file
+		print(table)
+		self.init_q_table(table) # TODO pick up from an earlier table
+
+		episode = 0
+		e = .9
+		while not rospy.is_shutdown():
+			# write a new q_table every 10 episodes
+			if episode % 10 == 0:
+				self.q_table.write(folder+"q_table_learning"+str(episode)+".txt")
+				write_learning(self.learning_graph)
+
+				graph_learning(self.learning_graph)
+				print_table(self.q_table.table)
+
+			# pick a new start
+			spawn = set_spawn(episode%12) # episode % len(starts))
+			self.model_publisher.publish(spawn)
+			self.start_episode(e, episode)
+
+			# update e after episode
+			e = .99 * e
+			episode += 1
+
+			print("end of episode: ", episode)
+
+
 
 	def store_scan(self, data):
 		# just store the ranges for now
@@ -336,12 +520,9 @@ class WallFollower():
 
 	def tf_lookup(self):
 		# find robots position and orientation and store it in robot position
-		# TODO this doesn't work because /map isn't a topic
-		# doesn't cause any problems for task 1 though
 		try:
-			(trans, rot) = self.tf_listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
-			self.robot_position = (trans,rot)
-			print(trans)
+			(trans, rot) = self.tf_listener.lookupTransform('/odom', '/base_footprint', rospy.Time(0))
+			self.robot_position = (trans, rot)
 		except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
 			pass
 
@@ -354,38 +535,79 @@ class WallFollower():
 		front_right = check_front_right(self.scan)
 		right = check_right(self.scan)
 
-		# hand number to state object to get a value [0,35] for the table
-		state = State(left, front, front_right, right)
-		return state
+		return (left, front, front_right, right)
 
-	# follow_wall
+	# start_episode
 	# handles the episodes for robot
 	# checks if robot has crashed, if so resets to a new position
-	def follow_wall(self):
-		while not rospy.is_shutdown():
+	def start_episode(self, e, episode):
+		stuck = 0
+		stranded_count = 0
+		update = 0
+		self.learning_graph = self.learning_graph + [[0,0]]
+
+		# constant to check if robot is far from everyting
+		stranded = (left_regions-1, front_regions-1, front_right_regions-1, right_regions-1)
+
+		start = rospy.get_rostime()
+		current = rospy.get_rostime() # checking time to stop it from getting caught in a loop
+		while not rospy.is_shutdown() and stuck < 50 and stranded_count < 50 and current.secs - start.secs < 60+.01*episode:
 			# store position to check if move is successful
+			self.tf_lookup()
 			before_position = self.robot_position
 
 			# finds the current state
 			state = self.get_state()
 
 			# use state and take an action based on q_table
-			self.take_step(state)
-			rospy.sleep(.2)
-			# TODO check to see if he's moved
+			self.take_step(state, e, episode) #id%2==0) #TODO might want to update this less often
+			rospy.sleep(.1)
+
+			# check to see if he's moved
+			self.tf_lookup()
+
+			if not check_move(self.robot_position, before_position):
+				# it hasn't moved
+				stuck += 3
+			else:
+				# it moved
+				stuck = 0
+
+			if self.get_state() == stranded:
+				stranded_count += .1
+			else:
+				stranded_count = 0
+			update += 1
+			current = rospy.get_rostime()
 
 	# take_step
-	# inputs a state and publishes a movement message
-	def take_step(self, state):
+	# inputs a state, epsilon, and learning update boolean
+	def take_step(self, state, e, episode):
 		pause()
 		# check q_table
-		action = self.q_table.table_lookup(state)
+		(a, not_randy) = self.q_table.table_lookup(state, e)
+
+		# check learning
+		learn_value = check_learning(state, a)
+		if learn_value != -1 and not_randy:
+			self.learning_graph[episode][0] += learn_value # counts total correct
+			self.learning_graph[episode][1] += 1 # counts total
 
 		# publish action
-		self.move_publisher.publish(action)
-
+		self.move_publisher.publish(actions[a])
 		unpause()
 
-		# TODO reward stuff
-		result = None
-		self.q_table.update_table(result)
+		rospy.sleep(.05)
+
+		pause()
+		# send off for q_learning
+		if e != 0 and episode%1 == 0:
+			reward = 0 # keeps values between 0 and 100
+			(l, f, fr, r) = self.get_state()
+			if r == 0 or r == right_regions-1 or f == 0 or l == 0:
+				reward = -1
+
+			# give before and after states for q-learning
+			self.q_table.update_table(state, a, (l,f,fr,r), reward)
+
+		unpause()
