@@ -1,57 +1,31 @@
-John Mann Project 3 Task 1
-
-Follows a straigh wall well. Needs to come in at slightly right of perpendicular of the wall.
+John Mann Project 3 Task 2
 
 To run
-my docker is having an issue where I have to remake the file for turtlebot3_plaza2 every time I start it up, so I follow the solution that Sherif gave. I don't think this will be an issue for anyone grading, but I'll include them in case.
-	mkdir ~/.gazebo/models
-	cp ~/catkin_ws/src/project3/models/turtlebot3_plaza2 ~/.gazebo/models/turtlebot3_plaza2
+- wall_follow.launch
+	I had issues with getting the model load, so I used Sherif's solution. I don't think you will have any issues but if you do, do the follow
+		1. mkdir ~/.gazebo/models
+		2 cp -r ~/catkin_ws/src/project3/models/turtlebot3_plaza2/ ~/.gazebo/models/turtlebot3_plaza2
+		
 
-then I run the launch file
-	roslaunch project3 wallfollow.launch
+	then run 
+		roslaunch project3 wall_follow.launch
+		
+To run the wall follow node, make sure the directory looks as follows
+	~/catkin_ws/src/project3/src/main.py
+	
+	then your options are
+		1. rosun project3 main.py test *table*
+			- this will take in some file, such as q_table_manual.txt, and spawn the robot around the map running it with that q_table
+			- my recommended test q_table which was learned is q_table_learning1000.txt
+				-!!! rosrun project3 main.py test q_table_learning1000.txt
+			
+		2. rosrun project3 main.py learn *table* *folder*
+			- this will have the robot learn from some given table and write into the given folder
+			
+		3. rosrun project3 main.py teleop
+			- this just prints the state that the robot is in every 5 seconds
+			- in another terminal run roslaunch turtlebot3_teleop turtlebot3_teleop_key.launch
+			
+During learning mode the graph will update every 10 episodes, but data for every episode is being collected.
 
-then to run the wall follower
-	rosrun project3 main.py
-
-The robot should spawn on the left at an angle and then start following the wall.
-
-All of the wall follow protocol is in wall_follow.py. To change where the robot starts, change the value on line 292 to anything [0,4]. To stop the spawn when the file starts, comment out line 293. You can then teleop to any point and run the file to have it follow that wall on the right.
-	roslaunch turtlebot3_teleop turtlebot3_teleop_key.launch
-
-close --> 0
-medium --> 1
-far --> 2
-
-for the front_right sensor:
-	x < .4        --> 0
-	.4 <= x < .6  --> 1
-	x > .6	      --> 2
-
-for the front_right sensor:
-	x < .5        --> 0
-	.5 <= x < .75 --> 1
-	x > .75	      --> 2
-
-State Table
-    State | right | front_right |
-      0   |   0   |      0      | 
-      1   |   1   |      0      | 
-      2   |   2   |      0      | 
-      3   |   0   |      1      | 
-      4   |   1   |      1      | 
-      5   |   2   |      1      | 
-      6   |   0   |      2      | 
-      7   |   1   |      2      | 
-      8   |   2   |      2      | 
-
-Q_Table
-    State | left | straight | right |
-      0   |  100 |     0    |   0   |
-      1   |  100 |     0    |   0   |
-      2   |   0  |    100   |   0   |
-      3   |   0  |    100   |   0   |
-      4   |   0  |    100   |   0   |
-      5   |   0  |     0    |  100  |
-      6   |   0  |    100   |   0   |
-      7   |   0  |     0    |  100  |
-      8   |   0  |    100   |   0   |
+I think something is broken with the learning, but it definitely cannot do the U turn

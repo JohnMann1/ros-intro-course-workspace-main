@@ -1,9 +1,13 @@
 roslaunch project3 wallfollow.launch
 
 mkdir ~/.gazebo/models
-cp -r turtlebot3_plaza2/ ~/.gazebo/models/turtlebot3_plaza2
+cp -r ~/catkin_ws/src/project3/models/turtlebot3_plaza2/ ~/.gazebo/models/turtlebot3_plaza2
 
 gz model -m turtlebot3_plaza -x 0 -y 0 -z 0
 
 rosservice call /gazebo/set_model_state "model_state: {model_name: "turtlebot3_burger", pose: {position: {x:
  0}}}"
+ 
+ rosrun package node_name _param:=blue
+ 
+ roslaunch turtlebot3_teleop turtlebot3_teleop_key.launch
