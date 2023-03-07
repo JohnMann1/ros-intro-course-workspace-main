@@ -36,17 +36,20 @@ linear_velocity = 0.1
 angular_velocity = 0.5
 
 starts = [[] for i in range(12)]
-starts[0] = [0,0,0,0,0,0] # origin
+#starts[0] = [0,0,0,0,0,0] # origin
+starts[0] = [1,1.5,0,0,.92,.37] # going down left wall
 starts[1] = [1,1.5,0,0,.92,.37] # going down left wall
 starts[2] = [-2, -2,0,0,0,0] # up from bottom right corner
 starts[3] = [1.4,0,0,0,0,1] # going north near top
 starts[4] = [2,.2,0,0,.67,.74] # top going left
 starts[5] = [0, 2,0,0,.99,-.01] # top middle going down
-starts[6] = [.2,-1.3,0,0,-.62,.77] # top right going into corner
-starts[7] = [1.07,-1.31,0,0, .66, .74] # top right going towards i wall
+#starts[6] = [.2,-1.3,0,0,-.62,.77] # top right going into corner
+starts[6] = [-2,.5,0,0,0,1] # middle bottom going north
+#starts[7] = [1.07,-1.31,0,0, .66, .74] # top right going towards i wall
+starts[7] = [1,1.5,0,0,.92,.37] # going down left wall
 starts[8] = [-1.8,-.5,0,0, -.84, .52] # bottom middle going east
 starts[9] = [-1.93,1.72,0,0, -.71, .69] # bottom left going east
-starts[10] = [0,1.81,0,0, 1, 0] # middle left going south
+starts[10] = [-2,.5,0,0, 0, 1] # middle left going south
 starts[11] = [0,1.5,0,0, 1, 0] # middle slightly less left going south
 
 
@@ -58,7 +61,7 @@ starts[11] = [0,1.5,0,0, 1, 0] # middle slightly less left going south
 left_regions = 3
 front_regions = 3
 front_right_regions = 2
-right_regions = 5
+right_regions = 3
 
 num_states = left_regions * front_regions * front_right_regions * right_regions
 
@@ -76,7 +79,7 @@ actions3[0] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = a
 actions3[1] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = 0)) # go straight
 actions3[2] = Twist(linear = Vector3(x=linear_velocity), angular = Vector3(z = -1* angular_velocity)) # go right
 
-actions = actions5
+actions = actions3
 num_actions = len(actions)
 
 # correct actions
@@ -100,7 +103,7 @@ class Action():
 # q_table ## extremely helpful comment
 class QTable():
 	# table structure: table[l][f][fr][r][action]
-	table = [[[[[0 for i in range(num_actions)] for i in range(right_regions)] for i in range(front_right_regions)] for i in range(front_regions)] for i in range(left_regions)]
+	table = [[[[[100 for i in range(num_actions)] for i in range(right_regions)] for i in range(front_right_regions)] for i in range(front_regions)] for i in range(left_regions)]
 
 	def __init__(self, file):
 		self.init_table(file)
@@ -146,7 +149,7 @@ class QTable():
 
 		old = self.table[l1][f1][fr1][r1][a]
 		next_action = max(self.table[l2][f2][fr2][r2])
-		new_q = old + learning * (reward + discount * next_action - old)
+		new_q = old + learning * (reward + (discount * next_action) - old)
 
 		self.table[l1][f1][fr1][r1][a] = round(new_q,2)
 	# write
@@ -231,7 +234,7 @@ def string_to_table(string):
 		if string[i] == " ":
 			# hit a space
 			# add number to table
-			list[count] = int(buffer)
+			list[count] = float(buffer)
 			# reset for next number
 			count += 1
 			buffer = 0
@@ -272,9 +275,9 @@ def check_left(scan):
 def check_front(scan):
 	front = min(scan[0:29] + scan[329:359])
 #	print("front:", front)
-	if front < .6:
+	if front < .3:
 		return 0 # close
-	elif front >= .6 and front < 1:
+	elif front >= .3 and front < 1:
 		return 1 # medium
 	else:
 		return 2 # far
@@ -295,22 +298,22 @@ def check_right(scan):
 	right = min(scan[249:329])
 #	print("right:", right)
 
-#	if right < .2:
-#		return 0 # close
-#	elif right >= .2 and right < .4:
-#		return 1 # medium close
-#	else:
-#		return 2
 	if right < .2:
 		return 0 # close
-	elif right >= .2 and right < .3:
+	elif right >= .2 and right < .6:
 		return 1 # medium close
-	elif right >= .3 and right < .4:
-		return 2 # medium
-	elif right >= .5 and right < .6:
-		return 3 # medium far
 	else:
-		return 4 # far
+		return 2
+#	if right < .2:
+#		return 0 # close
+#	elif right >= .2 and right < .3:
+#		return 1 # medium close
+#	elif right >= .3 and right < .4:
+#		return 2 # medium
+#	elif right >= .5 and right < .6:
+#		return 3 # medium far
+#	else:
+#		return 4 # far
 
 # check_move
 def check_move(pose1, pose2):
@@ -337,40 +340,74 @@ def print_table(table):
 def check_learning(state, a):
 	(l,f,fr,r) = state
 
-	if f > 0 and fr == 0 and r != 0 and r != right_regions-1: # in a corner
-		if a == 0: # go straight
-			return 1
+	if l != 0 and f != 0 and fr == 0 and r == 1:
+		if a == 1:
+			return (1,1)
 		else:
-			return 0
-
-	if f == 0 and l > 0: # front close and not close on left
-		if a == 3 or a == 4: # turn left
-			return 1
+			return (1,0)
+	if l != 0 and f == 0 and r == 2:
+		if a == 0:
+			return (0,1)
 		else:
-			return 0
-	if f > 0 and fr > 0 and r < right_regions-1: # coming up to i wall
-		if a == 1 or a == 2: # turn right
-			return 1
+			return (0,0)
+	if l == 0 and f == 0:
+		if a == 2:
+			return (2,1)
 		else:
-			return 0
+			return (2,0)
+	if l != 0 and f != 0 and fr == 0 and r == 1:
+		if a == 1:
+			return (1,1)
+		else:
+			return (1,0)
+	if fr == 1 and r < 2:
+		if a == 2:
+			return (2,1)
+		else:
+			return (2,0)
+	if fr == 0 and r == 2:
+		if a == 0:
+			return (0,1)
+		else:
+			return (0,0)
 
-	return 0
-
+	return (-1, -1)
 # write_learning
 # writes the learning array to a file just for safe keeping
-def write_learning(graph):
-	path = "/root/catkin_ws/src/project3/src/learning_graph.txt"
-	f = open(path, "w")
-	f.write(str(graph))
+def write_learning(graphs, folder):
+	path = "/root/catkin_ws/src/project3/src/learning_graphs/"+folder+"/"
+	# left
+	f = open(path+"learning_left.txt", "w")
+	f.write(str(graphs[0]))
+
+	# straight
+	f = open(path+"learning_straight.txt", "w")
+	f.write(str(graphs[1]))
+
+	# right
+	f = open(path+"learning_right.txt", "w")
+	f.write(str(graphs[2]))
+
 	f.close()
 
 # graph_learning
-# graphs the learning_graph in real time
+# graphs the overall learning_graph in real time
 # should only get called every 10 or so episodes
-def graph_learning(learning_graph):
-	values = [0 for i in range(len(learning_graph))]
+def graph_learning(graphs):
+	values = [0 for i in range(len(graphs[0]))]
+	learning_graph = [[0,0] for i in range(len(graphs[0]))]
 
+	# sum all of the learning
+	for i in range(len(learning_graph)):
+		correct = 0
+		total = 0
 
+		for j in range(num_actions):
+			correct += graphs[j][i][0]
+			total += graphs[j][i][1]
+		learning_graph[i] = [correct,total]
+
+	# get ratios
 	for i in range(len(values)):
 		if learning_graph[i][1] == 0:
 			values[i] = 0
@@ -398,7 +435,7 @@ class WallFollower():
 	scan = None
 	q_table = None
 	restarts = None
-	learning_graph = None
+	learning_graphs = None
 
 	def __init__(self, mode = "test", table=None, folder=""):
 		self.init_node()
@@ -407,7 +444,7 @@ class WallFollower():
 		self.init_move_publisher()
 		self.init_model_publisher()
 		self.restarts = 0
-		self.learning_graph = []
+		self.learning_graphs = [[],[],[]] # holds left straight and right graphs
 
 		while self.scan == None and not rospy.is_shutdown():
 			rospy.sleep(1)
@@ -479,7 +516,7 @@ class WallFollower():
 	def learn_mode(self, file, folder):
 		print("Starting Learning Mode")
 
-		if file == None:
+		if file == None or file == "None":
 			file = "q_table_blank.txt"
 		if folder != "":
 			folder = folder+"/"
@@ -495,18 +532,21 @@ class WallFollower():
 			# write a new q_table every 10 episodes
 			if episode % 10 == 0:
 				self.q_table.write(folder+"q_table_learning"+str(episode)+".txt")
-				write_learning(self.learning_graph)
-
-				graph_learning(self.learning_graph)
 				print_table(self.q_table.table)
+
+			write_learning(self.learning_graphs, folder)
+			graph_learning(self.learning_graphs)
+
 
 			# pick a new start
 			spawn = set_spawn(episode%12) # episode % len(starts))
 			self.model_publisher.publish(spawn)
 			self.start_episode(e, episode)
 
-			# update e after episode
-			e = .99 * e
+			# update e after episode until e == .1
+			if e > .1:
+				e = .99 * e
+
 			episode += 1
 
 			print("end of episode: ", episode)
@@ -544,14 +584,15 @@ class WallFollower():
 		stuck = 0
 		stranded_count = 0
 		update = 0
-		self.learning_graph = self.learning_graph + [[0,0]]
+		for i in range(num_actions):
+			self.learning_graphs[i] += [[0,0]]
 
 		# constant to check if robot is far from everyting
 		stranded = (left_regions-1, front_regions-1, front_right_regions-1, right_regions-1)
 
 		start = rospy.get_rostime()
 		current = rospy.get_rostime() # checking time to stop it from getting caught in a loop
-		while not rospy.is_shutdown() and stuck < 50 and stranded_count < 50 and current.secs - start.secs < 60+.01*episode:
+		while not rospy.is_shutdown() and stuck < 50 and stranded_count < 50 and current.secs - start.secs < 60*(1.002**episode):
 			# store position to check if move is successful
 			self.tf_lookup()
 			before_position = self.robot_position
@@ -588,24 +629,24 @@ class WallFollower():
 		(a, not_randy) = self.q_table.table_lookup(state, e)
 
 		# check learning
-		learn_value = check_learning(state, a)
+		(correct_action, learn_value) = check_learning(state, a)
 		if learn_value != -1 and not_randy:
-			self.learning_graph[episode][0] += learn_value # counts total correct
-			self.learning_graph[episode][1] += 1 # counts total
+			self.learning_graphs[correct_action][episode][0] += learn_value # counts total correct
+			self.learning_graphs[correct_action][episode][1] += 1 # counts total
 
 		# publish action
 		self.move_publisher.publish(actions[a])
 		unpause()
 
-		rospy.sleep(.05)
+		rospy.sleep(.1)
 
 		pause()
 		# send off for q_learning
 		if e != 0 and episode%1 == 0:
-			reward = 0 # keeps values between 0 and 100
+			reward = 20 # keeps values between 0 and 100
 			(l, f, fr, r) = self.get_state()
 			if r == 0 or r == right_regions-1 or f == 0 or l == 0:
-				reward = -1
+				reward = 0
 
 			# give before and after states for q-learning
 			self.q_table.update_table(state, a, (l,f,fr,r), reward)
