@@ -450,7 +450,6 @@ class WallFollower():
 			rospy.sleep(1)
 
 		if mode == "test":
-			# TODO let user specify the table to use
 			self.test_mode(table)
 		elif mode == "teleop":
 			self.teleop_mode()
@@ -496,6 +495,7 @@ class WallFollower():
 	# test_mode
 	# runs episodes using the manual table
 	# doesn't learn or change e
+	# TODO for project 4 took out episode behavior in test mode
 	def test_mode(self, table = "q_table_manual.txt"):
 		print("Starting Test Mode")
 		file = table
@@ -503,15 +503,17 @@ class WallFollower():
 		self.init_q_table(file)
 
 		# handles episodes for robot learning
-		episode = 0
+#		episode = 0
 
 		while not rospy.is_shutdown():
 			### Set the robot's starting position
 			### there are 12 options in the global starts array
-			spawn = set_spawn(episode % 12)
-			self.model_publisher.publish(spawn) # comment this line to stop spawning
-			self.start_episode(0, episode)
-			episode += 1
+#			spawn = set_spawn(episode % 12)
+#			self.model_publisher.publish(spawn) # comment this line to stop spawning
+#			self.start_episode(0, episode)
+#			episode += 1
+			state = self.get_state()
+			self.take_step(state)
 
 	def learn_mode(self, file, folder):
 		print("Starting Learning Mode")
@@ -524,7 +526,7 @@ class WallFollower():
 		# load q-table
 		table = file
 		print(table)
-		self.init_q_table(table) # TODO pick up from an earlier table
+		self.init_q_table(table)
 
 		episode = 0
 		e = .9
@@ -557,6 +559,12 @@ class WallFollower():
 		# just store the ranges for now
 		# might want max/min range later idk
 		self.scan = data.ranges
+
+		# TODO for project 4, clean list of zeroes
+		for i in range(len(self.scan)):
+			if self.scan[i] < LaserScan.range_min:
+				# set range to max so it won't affect the min finding
+				self.scan[i] = LaserScan.range_max
 
 	def tf_lookup(self):
 		# find robots position and orientation and store it in robot position
@@ -623,32 +631,33 @@ class WallFollower():
 
 	# take_step
 	# inputs a state, epsilon, and learning update boolean
-	def take_step(self, state, e, episode):
-		pause()
+	# TODO for project 4, removed all pause, sleep, and learning statements
+	def take_step(self, state): #  , e, episode):
+#		pause()
 		# check q_table
 		(a, not_randy) = self.q_table.table_lookup(state, e)
 
 		# check learning
-		(correct_action, learn_value) = check_learning(state, a)
-		if learn_value != -1 and not_randy:
-			self.learning_graphs[correct_action][episode][0] += learn_value # counts total correct
-			self.learning_graphs[correct_action][episode][1] += 1 # counts total
+#		(correct_action, learn_value) = check_learning(state, a)
+#		if learn_value != -1 and not_randy:
+#			self.learning_graphs[correct_action][episode][0] += learn_value # counts total correct
+#			self.learning_graphs[correct_action][episode][1] += 1 # counts total
 
 		# publish action
 		self.move_publisher.publish(actions[a])
-		unpause()
+#		unpause()
 
-		rospy.sleep(.1)
+#		rospy.sleep(.1)
 
-		pause()
+#		pause()
 		# send off for q_learning
-		if e != 0 and episode%1 == 0:
-			reward = 20 # keeps values between 0 and 100
-			(l, f, fr, r) = self.get_state()
-			if r == 0 or r == right_regions-1 or f == 0 or l == 0:
-				reward = 0
+#		if e != 0 and episode%1 == 0:
+#			reward = 20 # keeps values between 0 and 100
+#			(l, f, fr, r) = self.get_state()
+#			if r == 0 or r == right_regions-1 or f == 0 or l == 0:
+#				reward = 0
 
 			# give before and after states for q-learning
-			self.q_table.update_table(state, a, (l,f,fr,r), reward)
+#			self.q_table.update_table(state, a, (l,f,fr,r), reward)
 
-		unpause()
+#		unpause()
