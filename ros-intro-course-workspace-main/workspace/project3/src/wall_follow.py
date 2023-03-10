@@ -111,7 +111,7 @@ class QTable():
 	# reads table in from file
 	def init_table(self, file):
 		if file != "q_table_blank.txt":
-			path = "/root/catkin_ws/src/project3/src/q_tables/" + file
+			path = "./src/q_tables/" + file
 			f = open(path, "r")
 			self.table = string_to_table(f.read())
 		else:
@@ -155,7 +155,7 @@ class QTable():
 	# write
 	# saves the q_table in a file
 	def write(self, file):
-		path = "/root/catkin_ws/src/project3/src/q_tables/" + file
+		path = "./src/q_tables/" + file
 		file = open(path, "w")
 		file.write(table_to_string(self.table))
 		file.close()
@@ -558,13 +558,13 @@ class WallFollower():
 	def store_scan(self, data):
 		# just store the ranges for now
 		# might want max/min range later idk
-		self.scan = data.ranges
+		self.scan = [data.range_max for i in range(len(data.ranges))]
 
 		# TODO for project 4, clean list of zeroes
 		for i in range(len(self.scan)):
-			if self.scan[i] < LaserScan.range_min:
-				# set range to max so it won't affect the min finding
-				self.scan[i] = LaserScan.range_max
+			if data.ranges[i] > LaserScan.range_min:
+				# fect the min finding
+				self.scan[i] = data.ranges[i]
 
 	def tf_lookup(self):
 		# find robots position and orientation and store it in robot position
